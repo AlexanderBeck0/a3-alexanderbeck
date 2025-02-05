@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Page</title>
+    <meta name="description" content="Login Page">
+    <script src="js/min/login.min.js" async></script>
+
+    <!-- get rid of favicon error -->
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+
+    <link rel="preconnect" href="https://cdn.jsdeliver.net" crossorigin>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js" defer></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/fomantic-ui@2.9.3/dist/semantic.min.css"
+        crossorigin>
+    <script src="https://cdn.jsdelivr.net/npm/fomantic-ui@2.9.3/dist/semantic.min.js" defer></script>
+
+</head>
+
+<body>
+    <div class="ui container">
+        <div id="loginMessage" class="ui attached message">
+            <div class="header" role="heading" aria-level="1">Login to access your TODO</div>
+            <form class="ui form" id="loginForm">
+                <div class="fields">
+                    <div class="required field">
+                        <label for="usernameInput">Username</label>
+                        <input type="text" name="username" id="usernameInput" placeholder="Username" required
+                            class="ui input" />
+                    </div>
+                    <div class="required field">
+                        <label for="passwordInput">Password</label>
+                        <input type="password" name="password" id="passwordInput" placeholder="Password" required
+                            class="ui input" />
+                    </div>
+                    <div class="field">
+                        <label aria-hidden="true"></label>
+                        <button type="submit" class="fluid ui submit button">Login</button>
+                    </div>
+
+                </div>
+            </form>
+
+            <a href="auth/github">
+                <button id="login" class="ui github button" tabindex="0">
+                    <i class="github icon"></i>
+                    Login with Github
+                </button>
+            </a>
+        </div>
+</body>
+
+</html>

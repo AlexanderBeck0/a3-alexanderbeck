@@ -7,9 +7,6 @@ window.onload = function () {
     const clear = document.querySelector("#clear");
     clear.onclick = clearData;
 
-    const logoutBtn = document.querySelector('#signout');
-    logoutBtn.onclick = logout;
-
     const date = document.getElementById("duedate");
     initDate(date);
 
@@ -49,7 +46,8 @@ async function fetchData() {
         console.log("User not logged in");
         return;
     }
-    greetUser();
+    const user = json.pop();
+    greetUser(user);
     showElement(document.getElementById('todoForm'));
     createTable(json);
 }
@@ -113,18 +111,6 @@ const clearData = async function (event) {
     document.querySelector("#todo > table").childNodes.forEach(a => a.remove());
     createTableHeaders();
 };
-
-/**
- * Signs the user out by clearing the cookies
- */
-const logout = function (e) {
-    e.preventDefault();
-    // Clear the cookies
-    document.cookie.split(';').forEach(i => {
-        document.cookie = i + "; expires=01 Jan 2000 12:00:00 UTC";
-    });
-    farewellUser();
-}
 
 /**
  * Creates table headers for the table in #todo
@@ -291,40 +277,14 @@ function resetTaskName() {
 }
 
 /**
- * Gets the cookies of the page and uses it to figure out who is logged in.
- * Toggles the greeting message, and hides the login messages.
- * Also toggles the logout button.
+ * Says hi to the user.
  */
-function greetUser() {
+function greetUser(username) {
     // Get all the cookies
-    let cookies = decodeURIComponent(document.cookie).split('; ').map(i => {
-        return i.substring(i.indexOf('=') + 1);
-    });
-
-    const displayName = cookies[2];
-    const username = cookies[1];
-    const greeting = `${displayName} (${username})`;
     const message = document.getElementById('welcomeMessage');
-    message.innerText = message.innerText.replace('{User}', greeting);
+    message.innerText = message.innerText.replace('{User}', username['username']);
 
-    hideElement(document.getElementById('notLoggedIn'));
     showElement(document.getElementById('loggedIn'));
-}
-
-/**
- * Hides the welcome message and shows the options to sign in.
- */
-function farewellUser() {
-    const message = document.getElementById('welcomeMessage');
-    hideElement(document.getElementById('loggedIn'));
-    message.innerText = "Hello, {User}.";
-    showElement(document.getElementById('notLoggedIn'));
-
-    // Hide the form
-    hideElement(document.getElementById('todoForm'));
-
-    // Hide the table
-    hideElement(document.getElementById('todo'));
 }
 
 /**

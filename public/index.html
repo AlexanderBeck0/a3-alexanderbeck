@@ -6,7 +6,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Todo List: CS4241 Assignment 3 by Alexander Beck">
-  <script src="js/main.min.js" async></script>
+  <script src="js/min/main.min.js" async></script>
   <link rel="stylesheet" href="css/main.css" defer>
 
   <!-- get rid of favicon error -->
@@ -25,21 +25,14 @@
     <!-- Form -->
     <div class="ui container">
       <div id="loginMessage" class="ui attached message">
-        <span id="notLoggedIn">
-          <div class="header" role="heading" aria-level="1">Login to access your TODO</div>
-          <a href="auth/github">
-            <button id="login" class="ui github button" tabindex="0">
-              <i class="github icon"></i>
-              Login with Github
-            </button>
-          </a>
-        </span>
         <span id="loggedIn" style="display: none" aria-hidden="true">
           <div class="header" id="welcomeMessage" role="heading" aria-level="1">Hello, {User}.</div>
-          <button class="ui button" id="signout" tabindex="0">
-            <i class="sign out icon"></i>
-            Logout
-          </button>
+          <a href="/logout">
+            <button class="ui button" id="signout" tabindex="0">
+              <i class="sign out icon"></i>
+              Logout
+            </button>
+          </a>
         </span>
       </div>
       <form id="todoForm" class="ui attached segment form" style="display: none">
