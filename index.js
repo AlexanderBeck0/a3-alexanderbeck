@@ -58,7 +58,7 @@ app.use((req, res, next) => {
 });
 
 let appdata = []
-const doDebug = true;
+const doDebug = false;
 
 passport.serializeUser(function (user, done) {
     done(null, { username: user.username, id: user._id || user.id });
@@ -82,7 +82,7 @@ passport.use(new GitHubStrategy({
     clientID: process.env.GITHUB_CLIENT_ID,
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
     // callbackURL: "http://localhost:3000/auth/github/callback"
-    callbackURL: "https://a3-alexanderbeck.onrender.com/auth/github/callback"
+    callbackURL: "https://a3-alexanderbeck-sa.onrender.com/auth/github/callback"
 },
     async function (accessToken, refreshToken, profile, done) {
         debugPrint("Successfully connected to Github");
