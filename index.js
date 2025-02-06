@@ -96,11 +96,14 @@ passport.use(new GitHubStrategy({
 // https://github.com/jaredhanson/passport-local?tab=readme-ov-file#configure-strategy
 passport.use(new LocalStrategy({ session: true }, async function (username, password, done) {
     const user = await User.findOne({ username: username });
-    if (!user) return done(null, false, { message: "Incorrect username or password." }); // User not found
-    // TODO: Create new user
-    // How to update user that the account was created?
+    if (!user) {
+        // User not found
+        await User.insertOne({ username: username, password: password });
+        const new_user = await User.findOne({ username: username });
+        return done(null, new_user, { message: "Created new user!" });
+    }
+
     if (user.password !== password) return done(null, false, { message: "Incorrect username or password." }); // Incorrect password
-    // TODO: Make incorrect password actually get shown to user
     return done(null, user);
 }));
 
@@ -115,7 +118,7 @@ app.get('/auth/github/callback',
 app.get('/auth/github', passport.authenticate('github', { scope: ['user:email'] }));
 
 
-app.get('/', (req, res, next) => {
+app.get('/', (req, res) => {
     // User is not logged in
     if (!req.user) {
         return res.redirect("/login");
@@ -123,6 +126,13 @@ app.get('/', (req, res, next) => {
     // User is logged in
     res.sendFile(__dirname + "/public/index.html");
 });
+
+app.get("/getmessages", (req, res) => {
+    res.json({ messages: req.session.messages || [] });
+    req.session.messages = [];
+    req.session.save(); // Clear the messages
+});
+
 app.get("/login", (req, res) => {
     // User is logged in
     if (req.user) {
@@ -134,7 +144,7 @@ app.get("/login", (req, res) => {
 
 app.post("/login",
     passport.authenticate('local',
-        { session: true, failureRedirect: '/login', successRedirect: "/" }),
+        { session: true, failureRedirect: '/login', successRedirect: "/", failureMessage: true, successMessage: true }),
     function (req, res) {
         // Note: This is having some pretty annoying bugs and won't actually redirect properly...
     }
@@ -146,6 +156,7 @@ app.get("/logout", (req, res) => {
 });
 
 app.use(express.static('public'));
+
 
 /**
  * Sorts the data in appData according to priority, and then by date. Also reassigns ordernum.

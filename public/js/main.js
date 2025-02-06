@@ -10,9 +10,35 @@ window.onload = function () {
     const date = document.getElementById("duedate");
     initDate(date);
 
+    fetchMessages();
+
     // Gets the data from the server (if there is any)
     fetchData();
+
 };
+
+function fetchMessages() {
+    const messageDiv = document.getElementById("messageDiv");
+    fetch("/getmessages", {
+        method: "GET"
+    }).then(response => response.json()).then(data => {
+        messageDiv.childNodes.forEach(child => {
+            messageDiv.removeChild(child);
+        });
+        if (data.messages.length < 1) {
+            messageDiv.classList.add('hidden');
+            return;
+        }
+        const ul = document.createElement("ul");
+        data.messages.forEach(message => {
+            const li = document.createElement("li");
+            li.innerText = message;
+            ul.appendChild(li);
+        });
+        messageDiv.appendChild(ul);
+        messageDiv.classList.remove('hidden');
+    });
+}
 
 /**
  * Sets the value of the given input element to be the current date
