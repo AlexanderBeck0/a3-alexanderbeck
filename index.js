@@ -92,6 +92,10 @@ passport.use(new GitHubStrategy({
     }
 ));
 
+/**
+ * Hacky way of alerting the user if an account was created. This is NOT scalable. 
+ */
+let newAccount = false;
 // Create a LocalStrategy
 // https://github.com/jaredhanson/passport-local?tab=readme-ov-file#configure-strategy
 passport.use(new LocalStrategy({ session: true }, async function (username, password, done) {
@@ -100,6 +104,7 @@ passport.use(new LocalStrategy({ session: true }, async function (username, pass
         // User not found
         await User.insertOne({ username: username, password: password });
         const new_user = await User.findOne({ username: username });
+        newAccount = true;
         return done(null, new_user, { message: "Created new user!" });
     }
 
@@ -128,6 +133,13 @@ app.get('/', (req, res) => {
 });
 
 app.get("/getmessages", (req, res) => {
+    if (newAccount) {
+        let newMessage = "Created new account!";
+        if (req.session.messages === undefined) req.session.messages = [];
+        req.session.messages.push(newMessage);
+        newAccount = false;
+    }
+
     res.json({ messages: req.session.messages || [] });
     req.session.messages = [];
     req.session.save(); // Clear the messages
