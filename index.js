@@ -3,23 +3,8 @@ const app = express();
 const port = 3000;
 const dotenv = require('dotenv').config();
 const { MongoClient, Collection } = require('mongodb');
-const passport = require('passport');
-const session = require('express-session')
-const GitHubStrategy = require('passport-github2').Strategy;
-const LocalStrategy = require('passport-local').Strategy;
-const cookieParser = require('cookie-parser');
 
-app.use(session({
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false
-}));
-app.use(passport.initialize());
-app.use(passport.session());
 app.use(express.json());
-
-// Use a cookie parser with a secret code
-app.use(cookieParser('CS4241'));
 
 const uri = `mongodb+srv://${process.env.USER}:${process.env.PASS}@${process.env.HOST}`;
 const client = new MongoClient(uri);
@@ -58,15 +43,7 @@ app.use((req, res, next) => {
 });
 
 let appdata = []
-const doDebug = false;
-
-passport.serializeUser(function (user, done) {
-    done(null, { username: user.username, id: user._id || user.id });
-});
-
-passport.deserializeUser(function (obj, done) {
-    done(null, obj);
-});
+const doDebug = true;
 
 /**
  * Prints a message only if {@link doDebug} is on
@@ -78,92 +55,70 @@ function debugPrint(msg) {
     }
 }
 
-passport.use(new GitHubStrategy({
-    clientID: process.env.GITHUB_CLIENT_ID,
-    clientSecret: process.env.GITHUB_CLIENT_SECRET,
-    // callbackURL: "http://localhost:3000/auth/github/callback"
-},
-    async function (accessToken, refreshToken, profile, done) {
-        debugPrint("Successfully connected to Github");
-        process.nextTick(function () {
-            return done(null, profile);
-        });
-    }
-));
-
 /**
  * Hacky way of alerting the user if an account was created. This is NOT scalable. 
  */
 let newAccount = false;
-// Create a LocalStrategy
-// https://github.com/jaredhanson/passport-local?tab=readme-ov-file#configure-strategy
-passport.use(new LocalStrategy({ session: true }, async function (username, password, done) {
+
+app.get('/', (req, res) => {
+    // User is not logged in
+    res.sendFile(__dirname + "/public/index.html");
+});
+
+// app.get("/getmessages", (req, res) => {
+//     if (newAccount) {
+//         let newMessage = "Created new account!";
+//         if (req.session.messages === undefined) req.session.messages = [];
+//         req.session.messages.push(newMessage);
+//         newAccount = false;
+//     }
+
+//     res.json({ messages: req.session.messages || [] });
+//     req.session.messages = [];
+//     req.session.save(); // Clear the messages
+// });
+
+app.get("/login", (req, res) => {
+    // User is logged in
+    res.sendFile(__dirname + "/public/login.html");
+});
+
+app.post("/login", async function (req, res) {
+    // req will have username, password
+    const { username, password } = req.body;
+    // Check if account exists
     const user = await User.findOne({ username: username });
     if (!user) {
         // User not found
         await User.insertOne({ username: username, password: password });
         const new_user = await User.findOne({ username: username });
         newAccount = true;
-        return done(null, new_user, { message: "Created new user!" });
+        // 201: Created
+        const message = {
+            message: "Created new user!",
+            loggedIn: true
+        };
+        res.status(201).json(message);
+        return;
     }
 
-    if (user.password !== password) return done(null, false, { message: "Incorrect username or password." }); // Incorrect password
-    return done(null, user);
-}));
-
-app.get('/auth/github/callback',
-    passport.authenticate('github', { session: true, failureRedirect: '/login' }),
-    function (req, res) {
-        // Successful authentication, redirect home.
-        res.redirect('/');
-    });
-
-
-app.get('/auth/github', passport.authenticate('github', { scope: ['user:email'] }));
-
-
-app.get('/', (req, res) => {
-    // User is not logged in
-    if (!req.user) {
-        return res.redirect("/login");
-    }
-    // User is logged in
-    res.sendFile(__dirname + "/public/index.html");
-});
-
-app.get("/getmessages", (req, res) => {
-    if (newAccount) {
-        let newMessage = "Created new account!";
-        if (req.session.messages === undefined) req.session.messages = [];
-        req.session.messages.push(newMessage);
-        newAccount = false;
+    if (user.password !== password) {
+        // Incorrect password
+        // 401: Unauthorized
+        const message = {
+            message: "Incorrect username or password.",
+            loggedIn: false
+        };
+        res.status(401).json(message);
+        return;
     }
 
-    res.json({ messages: req.session.messages || [] });
-    req.session.messages = [];
-    req.session.save(); // Clear the messages
-});
+    const message = {
+        loggedIn: true
+    };
 
-app.get("/login", (req, res) => {
-    // User is logged in
-    if (req.user) {
-        res.redirect("/");
-    } else {
-        res.sendFile(__dirname + "/public/login.html");
-    }
-});
-
-app.post("/login",
-    passport.authenticate('local',
-        { session: true, failureRedirect: '/login', successRedirect: "/", failureMessage: true, successMessage: true }),
-    function (req, res) {
-        // Note: This is having some pretty annoying bugs and won't actually redirect properly...
-    }
-);
-
-app.get("/logout", (req, res) => {
-    req.logout(() => { });
-    res.redirect('/');
+    res.status(200).json(message);
+    return;
 });
 
 app.use(express.static('public'));
@@ -202,157 +157,104 @@ function sortData() {
 
 // Load the data from appdata
 app.post('/load', async (req, res) => {
-    if (req.user === undefined) {
+    if (req.body.username === undefined || req.body.username === null) {
         // Ensure that no database objects can be accessed without logging in
         debugPrint("Not logged in");
-        res.writeHead(200, "OK", { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ nocontent: true }));
+        res.status(401).json({ nocontent: true });
         return;
     }
 
     // User is logged in. Send the data
     debugPrint("Data requested");
     // Get the data from the DB for the user
-    appdata = await TodoCollection.find({ username: req.user.username }).toArray();
+    appdata = await TodoCollection.find({ username: req.body.username }).toArray();
+    res.status(200).json(appdata);
 
-    res.writeHead(200, "OK", { "Content-Type": "application/json" });
-    res.end(JSON.stringify([{ username: req.user.username }, ...appdata]));
+    // res.status(200).json([{ username: req.body.username }, ...appdata]);
     debugPrint("Data sent");
 });
 
 // Clear the data
 app.post('/clear', (req, res) => {
     // Ensure that no database objects can be accessed without logging in
-    if (req.user === undefined) {
+    if (req.body.username === undefined || req.body.username === null) {
         return;
     }
     // Clear the DB
-    TodoCollection.deleteMany({ username: req.user.username });
+    TodoCollection.deleteMany({ username: req.body.username });
     appdata = [];
     debugPrint("Cleared data!");
     res.writeHead(200, "OK", { "Content-Type": "text/plain" });
     res.end("Data cleared!");
+    // res.status(200).end("Data cleared!");
 });
 
-app.post('/delete', (req, res) => {
-    let dataString = "";
+app.post('/delete', async (req, res) => {
+    if (req.body.username === undefined || req.body.username === null) {
+        // Ensure that no database objects can be accessed without logging in
+        return;
+    }
 
-    req.on("data", function (data) {
-        dataString += data;
-    })
+    debugPrint("Recieved request to delete item");
+    await TodoCollection.deleteOne({ username: req.body.username, taskname: req.body.taskname });
+    appdata.splice(appdata.indexOf(task => task.taskname === req.body.taskname), 1);
 
-    req.on("end", function () {
-        if (req.user === undefined) {
-            // Ensure that no database objects can be accessed without logging in
-            return;
-        }
-
-        // Server crashes when dataString is not valid
-        let newData = null;
-        try {
-            newData = JSON.parse(dataString);
-        } catch {
-            if (newData === '') {
-                console.warn("Empty string given");
-            } else {
-                console.warn("INVALID JSON GIVEN");
-            }
-            return;
-        }
-        debugPrint("Recieved request to delete item");
-        TodoCollection.deleteOne({ username: req.user.username, taskname: newData.taskname });
-        appdata.splice(appdata.indexOf(task => task.taskname === newData.taskname), 1);
-
-        debugPrint("Item deleted!");
-        res.writeHead(200, "OK", { "Content-Type": "text/plain" });
-        res.end("Item deleted!");
-    });
+    debugPrint("Item deleted!");
+    res.sendStatus(200);
 });
 
+const new_post = async (req, res, next) => {
+    let newData = req.body;
 
-const new_post = (req, res, next) => {
-    let dataString = "";
+    if (!newData || Object.keys(newData).length === 0) {
+        console.warn("Empty or invalid JSON received");
+        return res.status(400).json({ error: "Invalid JSON" });
+    }
 
-    req.on("data", function (data) {
-        dataString += data;
-    })
+    if (!newData.taskname) {
+        console.warn("No task name provided.");
+        return res.status(400).json({ error: "Task name is required" });
+    }
 
-    req.on("end", function () {
-        if (req.user === undefined) {
-            // Ensure that no database objects can be accessed without logging in
-            return;
-        }
-        // Server crashes when dataString is not valid
-        let newData = null;
-        try {
-            newData = JSON.parse(dataString);
-        } catch {
-            if (newData === '' || newData === ' ') {
-                console.warn("Empty string given");
-            } else {
-                console.warn("INVALID JSON GIVEN");
-            }
-            return;
-        }
-
-        if (!newData.taskname) {
-            // No taskname found
-            debugPrint("No task name given");
-            return;
-        }
-
-        // Edits the existing value if the name is already there
-        for (let i = 0; i < appdata.length; i++) {
-            if (appdata[i].taskname === newData.taskname) {
-                newData.ordernum = appdata[i].ordernum;
-                // Update item in DB
-                const result = TodoCollection.updateOne(
-                    { _id: appdata[i]._id },
-                    {
-                        $set: {
-                            taskname: appdata[i].taskname,
-                            priority: newData.priority,
-                            duedate: newData.duedate,
-                            username: req.user.username,
-                            ordernum: newData.ordernum
-                        }
+    for (let i = 0; i < appdata.length; i++) {
+        if (appdata[i].taskname === newData.taskname) {
+            newData.ordernum = appdata[i].ordernum;
+            // Update item in DB
+            await TodoCollection.updateOne(
+                { _id: appdata[i]._id },
+                {
+                    $set: {
+                        taskname: appdata[i].taskname,
+                        priority: newData.priority,
+                        duedate: newData.duedate,
+                        username: req.body.username,
+                        ordernum: newData.ordernum
                     }
-                );
-                debugPrint("Updated item in DB");
-
-                // Replace the existing value in appdata with the new data
-                appdata.splice(i, 1, newData);
-                sortData();
-                debugPrint("Updated data!");
-
-                if (newData.taskname === "undefined") {
-                    console.warn("Undefined task name");
                 }
-                // Send data to front end
-                res.writeHead(200, "OK", { "Content-Type": "application/json" });
-                res.end(JSON.stringify(appdata));
-                next();
-                return;
-            }
+            );
+
+            debugPrint("Updated item in DB");
+
+            // Replace the existing value in appdata with the new data
+            appdata.splice(i, 1, newData);
+            sortData();
+            debugPrint("Updated data!");
+            return res.status(200).json(appdata);
         }
+    }
+    // Add githubID to entry
+    newData.username = req.body.username;
+    appdata.push(newData);
 
-        // Add githubID to entry
-        newData.username = req.user.username;
-        appdata.push(newData);
+    // Update all the order nums
+    sortData();
 
-        // Update all the order nums
-        sortData();
+    // Add item to DB
+    await TodoCollection.insertOne(newData);
+    debugPrint("Added item to DB");
 
-        // Add item to DB
-        const result = TodoCollection.insertOne(newData);
-        debugPrint("Added item to DB");
-
-        // // Return the new table
-        res.writeHead(200, "OK", { "Content-Type": "application/json" });
-        res.end(JSON.stringify(appdata));
-        next();
-    });
-}
+    res.status(200).json(appdata);
+};
 
 app.use(new_post);
 

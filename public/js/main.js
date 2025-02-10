@@ -1,6 +1,10 @@
 // Alexander Beck
 
 window.onload = function () {
+    if (!localStorage.getItem('username')) {
+        window.location.href = "/login";
+    }
+
     const button = document.querySelector("#submit");
     button.onclick = submit;
 
@@ -10,34 +14,32 @@ window.onload = function () {
     const date = document.getElementById("duedate");
     initDate(date);
 
-    fetchMessages();
-
     // Gets the data from the server (if there is any)
     fetchData();
 
 };
 
-function fetchMessages() {
+function showMessage(messages) {
     const messageDiv = document.getElementById("messageDiv");
-    fetch("/getmessages", {
-        method: "GET"
-    }).then(response => response.json()).then(data => {
-        messageDiv.childNodes.forEach(child => {
-            messageDiv.removeChild(child);
-        });
-        if (data.messages.length < 1) {
-            messageDiv.classList.add('hidden');
-            return;
-        }
-        const ul = document.createElement("ul");
-        data.messages.forEach(message => {
-            const li = document.createElement("li");
-            li.innerText = message;
-            ul.appendChild(li);
-        });
-        messageDiv.appendChild(ul);
-        messageDiv.classList.remove('hidden');
+    messageDiv.childNodes.forEach(child => {
+        messageDiv.removeChild(child);
     });
+    if (!Array.isArray(messages)) {
+        messages = [messages];
+    }
+
+    if (messages.length < 1) {
+        messageDiv.classList.add('hidden');
+        return;
+    }
+    const ul = document.createElement("ul");
+    messages.forEach(message => {
+        const li = document.createElement("li");
+        li.innerText = message;
+        ul.appendChild(li);
+    });
+    messageDiv.appendChild(ul);
+    messageDiv.classList.remove('hidden');
 }
 
 /**
@@ -52,28 +54,30 @@ function initDate(dateField) {
 
 async function fetchData() {
     // Used when the page first loads; it gets the data
-    const body = JSON.stringify({ 'method': 'load' });
+    const username = localStorage.getItem('username');
+    const body = JSON.stringify({
+        'method': 'load',
+        'username': localStorage.getItem('username'),
+        'password': localStorage.getItem('password')
+    });
     const response = await fetch("/load", {
         body,
-        method: "POST"
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        }
     });
 
-    const data = await response.text();
-    let json = null;
-    try {
-        json = JSON.parse(data);
-        console.log("Data recieved from server.");
-    } catch (e) {
-        console.log("Failed to connect to server!");
-    }
+    const json = await response.json();
 
     // User is not logged in
     if (json.nocontent) {
         console.log("User not logged in");
+        logout();
         return;
     }
-    const user = json.pop();
-    greetUser(user);
+
+    greetUser(username);
     showElement(document.getElementById('todoForm'));
     createTable(json);
 }
@@ -85,7 +89,10 @@ const submit = async function (event) {
     // remains to this day
     event.preventDefault();
 
-    let json = {};
+    let json = {
+        'username': localStorage.getItem('username'),
+        'password': localStorage.getItem('password')
+    };
     document.getElementById("todoForm").querySelectorAll("[data-send]").forEach(i => {
         // i is any element that has an element that is hard-coded to be sent with the data
         if (i.value === '') {
@@ -106,8 +113,11 @@ const submit = async function (event) {
     const body = JSON.stringify(json);
 
     const response = await fetch("/submit", {
-        body,
-        method: "POST"
+        body: body,
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        }
     });
 
     // Change 'Update' to 'Submit', or do nothing if it is already 'Submit'
@@ -127,8 +137,11 @@ const clearData = async function (event) {
     let json = { method: 'clear' };
     const body = JSON.stringify(json);
     const response = await fetch("/clear", {
-        body,
-        method: "POST"
+        body: body,
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        }
     });
     const status = await response.text();
     console.log(status);
@@ -204,11 +217,18 @@ function createTable(newTable) {
 
         // Clicking an element (other than the edit button) will delete it
         tr.onclick = async function () {
-            const json = { taskname: newTable[i].taskname, method: 'delete' }
+            const json = {
+                username: localStorage.getItem('username'),
+                taskname: newTable[i].taskname,
+                method: 'delete'
+            }
             const body = JSON.stringify(json);
             const response = await fetch('/delete', {
                 body,
-                method: "POST"
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                }
             });
             const status = await response.text();
             console.log(status);
@@ -308,7 +328,7 @@ function resetTaskName() {
 function greetUser(username) {
     // Get all the cookies
     const message = document.getElementById('welcomeMessage');
-    message.innerText = message.innerText.replace('{User}', username['username']);
+    message.innerText = message.innerText.replace('{User}', username);
 
     showElement(document.getElementById('loggedIn'));
 }
@@ -329,4 +349,10 @@ function hideElement(element) {
 function showElement(element) {
     element.style.display = 'inherit';
     element.ariaHidden = 'false';
+}
+
+function logout() {
+    localStorage.removeItem("username");
+    localStorage.removeItem("password");
+    location.reload();
 }

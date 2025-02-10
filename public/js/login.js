@@ -11,7 +11,6 @@ form.addEventListener('submit', (e) => {
     });
     login(values);
 });
-
 function login(info) {
     const body = JSON.stringify(info);
     fetch("/login", {
@@ -20,38 +19,43 @@ function login(info) {
         headers: {
             "Content-Type": "application/json"
         }
-    }).then(response => {
-        if (!response.ok) {
-            console.error(response)
+    }).then((response) => {
+        if (response.ok) {
+            localStorage.setItem('username', info['username']);
+            localStorage.setItem('password', info['password']);
+            if (response.status === 201) {
+                alert("Created new account!");
+            }
+            window.location.href = '/';
         } else {
-            location.reload();
+            if (response.status === 401) {
+                response.json().then((res) => {
+                    showMessage(res.message);
+                });
+            }
         }
     });
 }
 
-function fetchMessages() {
+function showMessage(messages) {
     const messageDiv = document.getElementById("messageDiv");
-    fetch("/getmessages", {
-        method: "GET"
-    }).then(response => response.json()).then(data => {
-        messageDiv.childNodes.forEach(child => {
-            messageDiv.removeChild(child);
-        });
-        if (data.messages.length < 1) {
-            messageDiv.classList.add('hidden');
-            return;
-        }
-        const ul = document.createElement("ul");
-        data.messages.forEach(message => {
-            const li = document.createElement("li");
-            li.innerText = message;
-            ul.appendChild(li);
-        });
-        messageDiv.appendChild(ul);
-        messageDiv.classList.remove('hidden');
+    messageDiv.childNodes.forEach(child => {
+        messageDiv.removeChild(child);
     });
-}
+    if (!Array.isArray(messages)) {
+        messages = [messages];
+    }
 
-window.onload = () => {
-    fetchMessages();
+    if (messages.length < 1) {
+        messageDiv.classList.add('hidden');
+        return;
+    }
+    const ul = document.createElement("ul");
+    messages.forEach(message => {
+        const li = document.createElement("li");
+        li.innerText = message;
+        ul.appendChild(li);
+    });
+    messageDiv.appendChild(ul);
+    messageDiv.classList.remove('hidden');
 }
